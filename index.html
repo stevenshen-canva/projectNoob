@@ -343,6 +343,71 @@
       row-gap: 2px;
     }
 
+    /* ---------- gallery ---------- */
+    .ascii-photo {
+      font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+      font-size: 9px;
+      line-height: 1;
+      letter-spacing: 0;
+      color: var(--amber);
+      text-shadow: 0 0 6px rgba(232, 176, 89, 0.25);
+      margin: 6px 0;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .photo-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      animation: fadein 0.15s ease-out;
+      cursor: zoom-out;
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .photo-frame {
+      max-width: min(80vw, 900px);
+      max-height: 82vh;
+      padding: 14px 14px 10px;
+      background: var(--bg-2);
+      border: 1px solid rgba(232, 176, 89, 0.4);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.5),
+        0 20px 60px rgba(0, 0, 0, 0.7),
+        inset 0 0 60px rgba(232, 176, 89, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .photo-frame img {
+      display: block;
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      border: 1px solid rgba(232, 176, 89, 0.15);
+      filter: contrast(0.96) saturate(0.92);
+    }
+
+    .photo-caption {
+      color: var(--cream);
+      font-size: 13px;
+    }
+
+    .photo-close {
+      color: var(--dim);
+      font-size: 11px;
+      text-align: right;
+    }
+
     /* tiny on-screen tip for mobile users */
     .hint {
       position: absolute;
@@ -481,6 +546,18 @@
         "github": "github.com/stevenshen-canva",
         "steam": "@shenthetrader",
       },
+
+      // drop photos into ./assets/ and list them here
+      // name = what you type after `gallery`, file = path, caption = subtitle
+      // rename these to whatever you like — e.g. name: "overland"
+      gallery: [
+        { name: "01", file: "assets/photo-1.jpg", caption: "(caption me — Jul 2024)" },
+        { name: "02", file: "assets/photo-2.jpg", caption: "(caption me — Feb 2025)" },
+        { name: "03", file: "assets/photo-3.jpg", caption: "(caption me — Feb 2025)" },
+        { name: "04", file: "assets/photo-4.jpg", caption: "(caption me — Feb 2025)" },
+        { name: "05", file: "assets/photo-5.jpg", caption: "(caption me — Jun 2025)" },
+        { name: "06", file: "assets/photo-6.jpg", caption: "(caption me)" },
+      ],
     };
     /* ========================================================================= */
 
@@ -589,6 +666,94 @@
     }
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    /* ---------- gallery helpers ---------- */
+    // darkest → lightest. terminal bg is dark, so dense glyphs map to bright pixels.
+    const ASCII_RAMP = " .'`,:;i!lI><+~?][}{1()|\\/tfjrxnuvczXYUJCLQ0OZmwpqdbkhao*#MW&8%B@$";
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('could not load image'));
+        img.src = src;
+      });
+    }
+
+    async function renderAsciiPhoto(photo) {
+      const loading = write(`<span class="muted">rendering ${escape(photo.file)}...</span>`);
+      let img;
+      try {
+        img = await loadImage(photo.file);
+      } catch (e) {
+        loading.remove();
+        write(`gallery: ${escape(photo.file)}: ${escape(e.message)}`, 'coral');
+        write(`<span class="muted">(make sure the file exists in assets/)</span>`, 'muted');
+        return;
+      }
+
+      // pick a width that fits the current viewport
+      const charPx = 5.4; // approx width of a 9px mono glyph
+      const maxCols = Math.max(40, Math.min(110, Math.floor(($screen.clientWidth - 56) / charPx)));
+      const cols = maxCols;
+      const rows = Math.max(1, Math.round(cols * (img.height / img.width) * 0.5));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = cols;
+      canvas.height = rows;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, cols, rows);
+
+      let data;
+      try {
+        data = ctx.getImageData(0, 0, cols, rows).data;
+      } catch (e) {
+        loading.remove();
+        write(`gallery: canvas blocked from reading pixels (CORS / file://).`, 'coral');
+        write(`<span class="muted">serve over http (e.g. <span class="cyan">python -m http.server</span>) and retry — or use <span class="cyan">gallery ${escape(photo.name)} --real</span>.</span>`, 'muted');
+        return;
+      }
+
+      let out = '';
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = (y * cols + x) * 4;
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          const idx = Math.floor((lum / 255) * (ASCII_RAMP.length - 1));
+          out += ASCII_RAMP[idx];
+        }
+        out += '\n';
+      }
+
+      loading.remove();
+      const pre = el('pre', 'ascii-photo');
+      pre.textContent = out;
+      $screen.appendChild(pre);
+      write(`<span class="muted">— ${escape(photo.caption || photo.name)}  <span class="cyan">(gallery ${escape(photo.name)} --real)</span> for the actual photo</span>`);
+      scrollDown();
+    }
+
+    function showPhotoModal(photo) {
+      const overlay = el('div', 'photo-modal');
+      overlay.innerHTML =
+        `<div class="photo-frame" onclick="event.stopPropagation()">` +
+        `  <img src="${escape(photo.file)}" alt="${escape(photo.caption || photo.name)}" />` +
+        `  <div class="photo-caption">${escape(photo.caption || photo.name)}</div>` +
+        `  <div class="photo-close">[click anywhere · esc] close</div>` +
+        `</div>`;
+
+      function close() {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        $input.focus();
+      }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+
+      overlay.addEventListener('click', close);
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+    }
 
     /* ---------- commands ---------- */
     const COMMANDS = {
@@ -700,11 +865,15 @@
           if (args[0] === 'projects' || args[0] === 'projects/' || args[0] === '~/projects') {
             return COMMANDS.projects.run();
           }
+          if (args[0] === 'gallery' || args[0] === 'gallery/' || args[0] === '~/gallery') {
+            return COMMANDS.gallery.run([]);
+          }
           const files = [
             ['whoami.txt', 'about me'],
             ['stack.yaml', 'what I build with'],
             ['experience/', 'work history'],
             ['projects/', 'side projects'],
+            ['gallery/', 'photos'],
             ['hobbies.md', 'off the clock'],
             ['facts.log', 'random facts'],
             ['why-canva.md', 'why here, why now'],
@@ -714,6 +883,44 @@
             const isDir = f.endsWith('/');
             write(`  <span class="${isDir ? 'cyan' : 'amberx'}">${f.padEnd(18)}</span> <span class="muted">${d}</span>`);
           });
+        }
+      },
+
+      gallery: {
+        desc: 'view photos (try: gallery, gallery <name>, --real for actual image)',
+        run(args) {
+          const photos = PROFILE.gallery || [];
+          if (!photos.length) {
+            write('gallery is empty. drop photos in <span class="cyan">assets/</span> and add them to <span class="cyan">PROFILE.gallery</span>.', 'muted');
+            return;
+          }
+          const flags = args.filter(a => a.startsWith('--'));
+          const positional = args.filter(a => !a.startsWith('--'));
+          const real = flags.includes('--real');
+          const target = positional[0];
+
+          if (!target) {
+            write('<span class="cream bold">$ ls ~/gallery</span>');
+            writeBlank();
+            photos.forEach(p => {
+              write(`  <span class="cyan">${escape(p.name).padEnd(14)}</span> <span class="muted">${escape(p.caption || '')}</span>`);
+            });
+            writeBlank();
+            write('<span class="muted">view: <span class="cyan">gallery &lt;name&gt;</span>  —  add <span class="cyan">--real</span> for the actual photo</span>');
+            return;
+          }
+
+          const photo = photos.find(p => p.name.toLowerCase() === target.toLowerCase());
+          if (!photo) {
+            write(`gallery: ${escape(target)}: no such photo. try <span class="cyan">gallery</span>`, 'coral');
+            return;
+          }
+
+          if (real) {
+            showPhotoModal(photo);
+          } else {
+            renderAsciiPhoto(photo);
+          }
         }
       },
 
