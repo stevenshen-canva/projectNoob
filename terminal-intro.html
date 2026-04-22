@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>./intro — new joiner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0d10;
+      --bg-2: #0e1215;
+      --amber: #e8b059;
+      --amber-dim: #8e6a35;
+      --cream: #f4e4c1;
+      --cyan: #7fdbda;
+      --coral: #ff7a85;
+      --green: #8fce7c;
+      --dim: #5a5a5a;
+      --prompt: #7fdbda;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--amber);
+      font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+      font-size: 15px;
+      line-height: 1.55;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- CRT atmosphere ---------- */
+    body::before {
+      /* scanlines */
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(to bottom,
+          rgba(255, 255, 255, 0.02) 0px,
+          rgba(255, 255, 255, 0.02) 1px,
+          transparent 1px,
+          transparent 3px);
+      z-index: 10;
+    }
+
+    body::after {
+      /* vignette + subtle amber glow */
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%),
+        radial-gradient(ellipse at center, rgba(232, 176, 89, 0.04) 0%, transparent 70%);
+      z-index: 11;
+    }
+
+    /* ---------- window chrome ---------- */
+    .window {
+      position: fixed;
+      inset: 24px;
+      background: var(--bg-2);
+      border: 1px solid rgba(232, 176, 89, 0.15);
+      border-radius: 10px;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.4),
+        0 30px 80px rgba(0, 0, 0, 0.6),
+        inset 0 0 120px rgba(232, 176, 89, 0.02);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .titlebar {
+      flex: 0 0 auto;
+      padding: 10px 16px;
+      background: linear-gradient(180deg, #14181c, #0f1317);
+      border-bottom: 1px solid rgba(232, 176, 89, 0.12);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    .dots {
+      display: flex;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #2a2d30;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+    }
+
+    .dot.red {
+      background: #ff5f57;
+    }
+
+    .dot.yellow {
+      background: #febc2e;
+    }
+
+    .dot.green {
+      background: #28c840;
+    }
+
+    .title {
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: var(--cream);
+      opacity: 0.7;
+    }
+
+    .titlebar .meta {
+      margin-left: auto;
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    .screen {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 24px 28px 14px;
+      scroll-behavior: smooth;
+      animation: flicker 6s infinite;
+    }
+
+    .screen::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .screen::-webkit-scrollbar-thumb {
+      background: rgba(232, 176, 89, 0.15);
+      border-radius: 3px;
+    }
+
+    @keyframes flicker {
+
+      0%,
+      97%,
+      100% {
+        opacity: 1;
+      }
+
+      98% {
+        opacity: 0.96;
+      }
+
+      99% {
+        opacity: 1.02;
+      }
+    }
+
+    /* ---------- content ---------- */
+    .line {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .muted {
+      color: var(--dim);
+    }
+
+    .cream {
+      color: var(--cream);
+    }
+
+    .cyan {
+      color: var(--cyan);
+    }
+
+    .coral {
+      color: var(--coral);
+    }
+
+    .green {
+      color: var(--green);
+    }
+
+    .amberx {
+      color: var(--amber);
+    }
+
+    .bold {
+      font-weight: 600;
+    }
+
+    .indent {
+      padding-left: 2ch;
+    }
+
+    .banner {
+      color: var(--amber);
+      font-weight: 600;
+      line-height: 1.05;
+      margin: 4px 0 10px;
+      text-shadow: 0 0 14px rgba(232, 176, 89, 0.25);
+    }
+
+    .k {
+      color: var(--cyan);
+    }
+
+    .v {
+      color: var(--cream);
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+      border-bottom: 1px dotted rgba(127, 219, 218, 0.4);
+    }
+
+    a:hover {
+      border-bottom-style: solid;
+    }
+
+    /* ---------- prompt / input ---------- */
+    .promptline {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 6px 28px 18px;
+      flex: 0 0 auto;
+    }
+
+    .prompt {
+      color: var(--prompt);
+      white-space: nowrap;
+    }
+
+    .prompt .at {
+      color: var(--dim);
+    }
+
+    .prompt .path {
+      color: var(--amber);
+    }
+
+    .prompt .sig {
+      color: var(--cream);
+    }
+
+    .input-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      display: inline-flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+
+    .mirror {
+      color: var(--cream);
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 1em;
+    }
+
+    #input {
+      /* invisible but still captures keystrokes (incl. mobile keyboards) */
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: transparent;
+      font: inherit;
+      caret-color: transparent;
+      opacity: 0;
+    }
+
+    .caret {
+      display: inline-block;
+      width: 8px;
+      height: 1.05em;
+      background: var(--amber);
+      vertical-align: middle;
+      margin-left: 1px;
+      animation: blink 1.05s steps(1) infinite;
+      box-shadow: 0 0 6px rgba(232, 176, 89, 0.6);
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    /* rendered prompt inside history */
+    .history-prompt {
+      color: var(--prompt);
+    }
+
+    .history-prompt .at {
+      color: var(--dim);
+    }
+
+    .history-prompt .path {
+      color: var(--amber);
+    }
+
+    .history-cmd {
+      color: var(--cream);
+    }
+
+    /* command cards */
+    .card {
+      border-left: 2px solid rgba(232, 176, 89, 0.5);
+      padding: 4px 0 4px 14px;
+      margin: 4px 0;
+      color: var(--cream);
+    }
+
+    .card .label {
+      color: var(--amber);
+      font-weight: 500;
+    }
+
+    .twocol {
+      display: grid;
+      grid-template-columns: 16ch 1fr;
+      column-gap: 12px;
+      row-gap: 2px;
+    }
+
+    /* tiny on-screen tip for mobile users */
+    .hint {
+      position: absolute;
+      bottom: 8px;
+      right: 18px;
+      font-size: 11px;
+      color: var(--dim);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    @media (max-width: 640px) {
+
+      html,
+      body {
+        font-size: 13.5px;
+      }
+
+      .window {
+        inset: 10px;
+        border-radius: 7px;
+      }
+
+      .screen {
+        padding: 16px 16px 10px;
+      }
+
+      .promptline {
+        padding: 6px 16px 14px;
+      }
+
+      .hint {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="window" id="window">
+    <header class="titlebar">
+      <div class="dots">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <span class="title">you@canva ~ zsh — 96×28</span>
+      <span class="meta" id="clock"></span>
+    </header>
+
+    <section class="screen" id="screen" aria-live="polite"></section>
+
+    <div class="promptline" id="promptline" style="display:none;">
+      <span class="prompt">
+        <span class="sig">you</span><span class="at">@</span><span class="sig">canva</span><span
+          class="at">:</span><span class="path">~</span><span class="at">$</span>
+      </span>
+      <span class="input-wrap">
+        <span class="mirror" id="mirror"></span><span class="caret" id="caret"></span>
+        <input id="input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      </span>
+    </div>
+
+    <div class="hint">type <span class="cyan">help</span> — <span class="cyan">tab</span> to autocomplete — <span
+        class="cyan">↑</span> for history</div>
+  </main>
+
+  <script>
+    /* =========================================================================
+       👋  EDIT YOUR DETAILS HERE
+       ------------------------------------------------------------------------
+       This is the only block you need to touch. Swap in your real info.
+       ========================================================================= */
+    const PROFILE = {
+      name: "Steven Shen",
+      handle: "stevenshen1999",                 // used in the prompt / signature
+      role: "Senior Software Engineer",
+      team: "AI and Automation",
+      location: "Sydney, Australia",          // or wherever you are
+      startDate: "April 2026",
+      pronouns: "he/him",                  // optional — shown in whoami
+
+      tagline: "First software engineer here in our team, excited to be here to ship and break the exact right amount of things",
+
+      bio: [
+        "I've been a backend software engineer since the Great Toilet Paper Panic of 2020. Distributed systems, APIs, the unglamorous plumbing that keeps products alive at 3am, or wake oncalls up at 4am. Excited to bring that to AIAP as our first software engineer hire, which means I get to set the patterns and help out with the team, but which also means someone might one day inherit my mistakes. Sorry in advance.",
+      ],
+
+      stack: {
+        "Languages": ["Go", "Python"],
+        "Database": ["Postgres", "Redis", "RocketMQ"],
+        "Infra": ["AWS", "GCP"],
+        "Observability": ["Grafana"],
+      },
+
+      experience: [
+        { when: "2023 — 2026", where: "TikTok", what: "Software Engineer, Subscription $$$" },
+        { when: "2022 — 2023", where: "Amadeus", what: "Software Engineer, European Rail Integration" },
+        { when: "2021 - 2022", where: "Lynxx", what: "Graduate Software Engineer" },
+      ],
+
+      projects: [
+        { name: "valentine", blurb: "I parsed three years worth of my girlfriend and I's text and voice messages to create a series of puzzle hunt for her." },
+        { name: "leviathan", blurb: "There was once I got so sick of monopoly I tasked a ML bot to find the most uncooth and unfun way of winning, which turns out to be hoard everything, never trade, and grind all your opponents down" },
+        { name: "jigsaur", blurb: "A project cooked up by my friend and I to pair people up for social activities, for more details, App Store search 'Jigsaur' please :)" },
+      ],
+
+      hobbies: [
+        "Hiking, I got so into hiking in the beginning of last year, did the overland track in December and the current goal is to hike TMB in Switzerland next year",
+        "Curiosity, I am super curious about literally everything and anything, you will usually find me reading some random wikipedia articles about the most obscure things. Special:Random (alt + x) on Wiki is just about my most used shortcut (outside of jj in Vim)",
+        "Chess is another recent hobby, Dota, and the most interesting thing of our time and something we definitely haven’t heard enough about (/s), politics. Outside of work, you will either find me in nature or in front of my natural habitat, my pc all day.",
+      ],
+
+      facts: [
+        "I've never seen Star Wars. Please don't spoil it.",
+        "Once deployed to prod on a Friday. Will not elaborate.",
+        "My terminal background is the same colour as this one — I don't have range.",
+        "I can name every Pokémon from gens 1–3. Useless skill, proud of it.",
+      ],
+
+      whyCanva: [
+        "Canva makes design accessible to literally anyone — that's the line that got me.",
+        "Backend work here actually reaches a billion+ designs a year. Scale is fun,",
+        "scale in service of people who'd never otherwise get to design is better.",
+      ],
+
+      askMeAbout: [
+        "distributed systems war stories",
+        "why you should actually write the integration test",
+        "coffee gear, unsolicited",
+        "anything — I'm new, I want to meet everyone",
+      ],
+
+      contact: {
+        "email": "stevenshen@canva.com",
+        "github": "github.com/stevenshen-canva",
+        "steam": "@shenthetrader",
+      },
+    };
+    /* ========================================================================= */
+
+
+    /* ---------- DOM ---------- */
+    const $screen = document.getElementById('screen');
+    const $input = document.getElementById('input');
+    const $mirror = document.getElementById('mirror');
+    const $promptline = document.getElementById('promptline');
+    const $caret = document.getElementById('caret');
+    const $clock = document.getElementById('clock');
+
+    function syncMirror() { $mirror.textContent = $input.value; }
+
+    /* ---------- clock in titlebar ---------- */
+    function updateClock() {
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      $clock.textContent = `${hh}:${mm}`;
+    }
+    updateClock(); setInterval(updateClock, 30_000);
+
+    /* ---------- writing helpers ---------- */
+    function el(tag, cls, html) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (html != null) e.innerHTML = html;
+      return e;
+    }
+    function write(html = '', cls = '') {
+      const line = el('div', 'line ' + cls, html);
+      $screen.appendChild(line);
+      scrollDown();
+      return line;
+    }
+    function writeBlank() { write('&nbsp;'); }
+    function scrollDown() { $screen.scrollTop = $screen.scrollHeight; }
+
+    function typeLine(text, { cls = '', speed = 8 } = {}) {
+      return new Promise(resolve => {
+        const line = el('div', 'line ' + cls);
+        $screen.appendChild(line);
+        let i = 0;
+        (function tick() {
+          if (i <= text.length) {
+            line.textContent = text.slice(0, i++);
+            scrollDown();
+            setTimeout(tick, speed);
+          } else {
+            resolve();
+          }
+        })();
+      });
+    }
+
+    function escape(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    /* ---------- boot sequence ---------- */
+    async function boot() {
+      const lines = [
+        { t: 'you-intro BIOS v4.26  (c) 2026', c: 'muted' },
+        { t: 'POST... <span class="green">ok</span>', c: '' },
+        { t: 'loading kernel.......... <span class="green">ok</span>', c: '' },
+        { t: 'mounting /home/you..... <span class="green">ok</span>', c: '' },
+        { t: 'starting coffee.service <span class="green">ok</span>', c: '' },
+        { t: 'starting curiosity.service <span class="green">ok</span>', c: '' },
+        { t: 'starting imposter-syndrome.service <span class="coral">degraded</span> (expected)', c: '' },
+        { t: 'negotiating canva-vpn... <span class="green">ok</span>', c: '' },
+      ];
+
+      for (const l of lines) {
+        write(l.t, l.c);
+        await sleep(90 + Math.random() * 120);
+      }
+      await sleep(250);
+      writeBlank();
+
+      // banner
+      const banner = String.raw`
+  ██╗  ██╗███████╗██╗     ██╗      ██████╗ 
+  ██║  ██║██╔════╝██║     ██║     ██╔═══██╗
+  ███████║█████╗  ██║     ██║     ██║   ██║
+  ██╔══██║██╔══╝  ██║     ██║     ██║   ██║
+  ██║  ██║███████╗███████╗███████╗╚██████╔╝
+  ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝ `;
+      const b = el('pre', 'banner');
+      b.textContent = banner;
+      $screen.appendChild(b);
+
+      writeBlank();
+      await typeLine(`Welcome. You've reached ${PROFILE.name.toUpperCase()} — ${PROFILE.role} @ Canva.`, { cls: 'cream', speed: 14 });
+      write(`${PROFILE.tagline}`, 'muted');
+      writeBlank();
+      write(`Type <span class="cyan">help</span> to see available commands.`);
+      write(`Try <span class="cyan">whoami</span>, <span class="cyan">stack</span>, <span class="cyan">why-canva</span>, or <span class="cyan">ls</span>.`, 'muted');
+      writeBlank();
+
+      $promptline.style.display = 'flex';
+      $input.focus();
+    }
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    /* ---------- commands ---------- */
+    const COMMANDS = {
+      help: {
+        desc: 'show available commands',
+        run() {
+          write('<span class="cream bold">Available commands</span>');
+          writeBlank();
+          const rows = Object.entries(COMMANDS)
+            .filter(([, c]) => !c.hidden)
+            .map(([name, c]) => `  <span class="cyan">${name.padEnd(14)}</span><span class="muted">${c.desc}</span>`);
+          rows.forEach(r => write(r));
+          writeBlank();
+          write('  <span class="muted">tip: <span class="cyan">tab</span> to autocomplete, <span class="cyan">↑/↓</span> for history, <span class="cyan">clear</span> to wipe the screen</span>');
+        }
+      },
+
+      whoami: {
+        desc: 'who is this person anyway',
+        run() {
+          write(`<span class="k">name      </span> <span class="v">${PROFILE.name}</span>`);
+          write(`<span class="k">role      </span> <span class="v">${PROFILE.role}</span>`);
+          write(`<span class="k">team      </span> <span class="v">${PROFILE.team}</span>`);
+          write(`<span class="k">pronouns  </span> <span class="v">${PROFILE.pronouns}</span>`);
+          write(`<span class="k">location  </span> <span class="v">${PROFILE.location}</span>`);
+          write(`<span class="k">joined    </span> <span class="v">${PROFILE.startDate}</span>`);
+          writeBlank();
+          PROFILE.bio.forEach(l => write(l, 'cream'));
+        }
+      },
+
+      stack: {
+        desc: 'tech stack I reach for',
+        run() {
+          write('<span class="cream bold">$ cat ~/stack.yaml</span>');
+          writeBlank();
+          Object.entries(PROFILE.stack).forEach(([cat, items]) => {
+            write(`<span class="k">${cat.padEnd(14)}</span> <span class="v">${items.join(', ')}</span>`);
+          });
+        }
+      },
+
+      experience: {
+        desc: 'past lives (work history)',
+        run() {
+          write('<span class="cream bold">$ git log --author="me" --oneline</span>');
+          writeBlank();
+          PROFILE.experience.forEach(x => {
+            write(`  <span class="amberx">${x.when}</span>  <span class="cream bold">${x.where}</span>`);
+            write(`                 <span class="muted">${x.what}</span>`);
+          });
+        }
+      },
+
+      projects: {
+        desc: 'things I\'ve built',
+        run() {
+          write('<span class="cream bold">$ ls ~/projects</span>');
+          writeBlank();
+          PROFILE.projects.forEach(p => {
+            write(`  <span class="cyan">${p.name}/</span>  <span class="muted">— ${p.blurb}</span>`);
+          });
+        }
+      },
+
+      hobbies: {
+        desc: 'off the clock',
+        run() {
+          PROFILE.hobbies.forEach(h => write(`  <span class="amberx">▸</span> <span class="cream">${h}</span>`));
+        }
+      },
+
+      facts: {
+        desc: 'random facts',
+        run() {
+          PROFILE.facts.forEach((f, i) => write(`  <span class="muted">${String(i + 1).padStart(2, '0')}</span>  <span class="cream">${f}</span>`));
+        }
+      },
+
+      'why-canva': {
+        desc: 'why I picked Canva',
+        run() {
+          write('<span class="cream bold">$ cat ~/why-canva.md</span>');
+          writeBlank();
+          PROFILE.whyCanva.forEach(l => write(l, 'cream'));
+        }
+      },
+
+      'ask-me': {
+        desc: 'things I love talking about',
+        run() {
+          write('ask me about:', 'muted');
+          PROFILE.askMeAbout.forEach(a => write(`  <span class="amberx">✦</span> <span class="cream">${a}</span>`));
+        }
+      },
+
+      contact: {
+        desc: 'how to reach me',
+        run() {
+          Object.entries(PROFILE.contact).forEach(([k, v]) => {
+            write(`<span class="k">${k.padEnd(8)}</span> <span class="v">${v}</span>`);
+          });
+        }
+      },
+
+      ls: {
+        desc: 'list files in ~',
+        run(args) {
+          if (args[0] === 'projects' || args[0] === 'projects/' || args[0] === '~/projects') {
+            return COMMANDS.projects.run();
+          }
+          const files = [
+            ['whoami.txt', 'about me'],
+            ['stack.yaml', 'what I build with'],
+            ['experience/', 'work history'],
+            ['projects/', 'side projects'],
+            ['hobbies.md', 'off the clock'],
+            ['facts.log', 'random facts'],
+            ['why-canva.md', 'why here, why now'],
+            ['contact.vcf', 'reach me'],
+          ];
+          files.forEach(([f, d]) => {
+            const isDir = f.endsWith('/');
+            write(`  <span class="${isDir ? 'cyan' : 'amberx'}">${f.padEnd(18)}</span> <span class="muted">${d}</span>`);
+          });
+        }
+      },
+
+      cat: {
+        desc: 'read a file (try: cat whoami.txt)',
+        run(args) {
+          const f = (args[0] || '').toLowerCase().replace(/^~\//, '');
+          const map = {
+            'whoami.txt': 'whoami',
+            'stack.yaml': 'stack',
+            'hobbies.md': 'hobbies',
+            'facts.log': 'facts',
+            'why-canva.md': 'why-canva',
+            'contact.vcf': 'contact',
+          };
+          if (!f) return write('cat: missing file operand. try: <span class="cyan">ls</span>', 'coral');
+          if (map[f]) return COMMANDS[map[f]].run();
+          write(`cat: ${escape(f)}: No such file or directory`, 'coral');
+        }
+      },
+
+      date: {
+        desc: 'current date/time',
+        run() {
+          write(new Date().toString(), 'cream');
+        }
+      },
+
+      echo: {
+        desc: 'echo [text]',
+        run(args) { write(escape(args.join(' ')), 'cream'); }
+      },
+
+      sudo: {
+        desc: 'you don\'t have sudo here',
+        run(args) {
+          if (args.join(' ') === 'make me a sandwich') return write('okay.', 'cream');
+          write(`you are not in the sudoers file. this incident will be reported.`, 'coral');
+        }
+      },
+
+      coffee: {
+        desc: 'brew coffee',
+        run() {
+          write('  ( (', 'cream');
+          write('   ) )', 'cream');
+          write('  ........', 'cream');
+          write('  |      |]', 'cream');
+          write('  \\      /', 'cream');
+          write('   `----\'', 'cream');
+          writeBlank();
+          write('☕ HTTP 418: I\'m a teapot.', 'amberx');
+        }
+      },
+
+      joke: {
+        desc: 'a bad dev joke',
+        run() {
+          const jokes = [
+            'There are only two hard problems in computer science: cache invalidation, naming things, and off-by-one errors.',
+            '99 little bugs in the code / 99 little bugs / take one down, patch it around / 117 little bugs in the code.',
+            'Why do programmers prefer dark mode? Because light attracts bugs.',
+            'A SQL query walks into a bar, walks up to two tables and asks: "mind if I join you?"',
+            'I told my backend it had commitment issues. It rolled back.',
+          ];
+          write(jokes[Math.floor(Math.random() * jokes.length)], 'cream');
+        }
+      },
+
+      banner: {
+        desc: 'ascii banner (the intro one)',
+        run() {
+          const banner = String.raw`
+  ██╗  ██╗███████╗██╗     ██╗      ██████╗ 
+  ██║  ██║██╔════╝██║     ██║     ██╔═══██╗
+  ███████║█████╗  ██║     ██║     ██║   ██║
+  ██╔══██║██╔══╝  ██║     ██║     ██║   ██║
+  ██║  ██║███████╗███████╗███████╗╚██████╔╝
+  ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝ `;
+          const b = el('pre', 'banner');
+          b.textContent = banner;
+          $screen.appendChild(b);
+          scrollDown();
+        }
+      },
+
+      history: {
+        desc: 'command history',
+        run() {
+          if (!history.length) return write('(no history yet)', 'muted');
+          history.forEach((h, i) => write(`  <span class="muted">${String(i + 1).padStart(3, ' ')}</span>  <span class="cream">${escape(h)}</span>`));
+        }
+      },
+
+      clear: {
+        desc: 'clear the screen',
+        run() { $screen.innerHTML = ''; }
+      },
+
+      exit: {
+        desc: 'nice try',
+        run() { write('nope. you\'re stuck here. (try <span class="cyan">clear</span>)', 'coral'); }
+      },
+    };
+
+    /* ---------- input handling ---------- */
+    const history = [];
+    let hIndex = -1;
+
+    function renderPrompt(cmdText) {
+      const p = el('div', 'line');
+      p.innerHTML = `<span class="history-prompt"><span class="at">you</span><span class="at">@</span><span class="at">canva</span><span class="at">:</span><span class="path">~</span><span class="at">$</span></span> <span class="history-cmd">${escape(cmdText)}</span>`;
+      $screen.appendChild(p);
+    }
+
+    function runCommand(raw) {
+      const trimmed = raw.trim();
+      renderPrompt(trimmed);
+      if (!trimmed) return;
+      history.push(trimmed);
+      hIndex = history.length;
+
+      const [name, ...args] = trimmed.split(/\s+/);
+      const cmd = COMMANDS[name.toLowerCase()];
+      if (!cmd) {
+        write(`zsh: command not found: ${escape(name)}`, 'coral');
+        write(`(try <span class="cyan">help</span>)`, 'muted');
+        return;
+      }
+      try {
+        cmd.run(args);
+      } catch (e) {
+        write(`error: ${escape(e.message)}`, 'coral');
+      }
+    }
+
+    $input.addEventListener('input', syncMirror);
+
+    $input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const v = $input.value;
+        $input.value = '';
+        syncMirror();
+        runCommand(v);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (history.length === 0) return;
+        hIndex = Math.max(0, hIndex - 1);
+        $input.value = history[hIndex] ?? '';
+        syncMirror();
+        setTimeout(() => $input.setSelectionRange($input.value.length, $input.value.length), 0);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (history.length === 0) return;
+        hIndex = Math.min(history.length, hIndex + 1);
+        $input.value = history[hIndex] ?? '';
+        syncMirror();
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        const prefix = $input.value.trim();
+        if (!prefix) return;
+        const matches = Object.keys(COMMANDS).filter(k => k.startsWith(prefix.toLowerCase()));
+        if (matches.length === 1) {
+          $input.value = matches[0] + ' ';
+          syncMirror();
+        } else if (matches.length > 1) {
+          renderPrompt(prefix);
+          write(matches.map(m => `<span class="cyan">${m}</span>`).join('  '));
+        }
+      } else if (e.key === 'l' && e.ctrlKey) {
+        e.preventDefault();
+        COMMANDS.clear.run();
+      }
+    });
+
+    /* keep focus on input */
+    document.addEventListener('click', (e) => {
+      // don't steal focus if user is selecting text
+      if (window.getSelection().toString()) return;
+      $input.focus();
+    });
+
+    /* ---------- go ---------- */
+    boot();
+  </script>
+</body>
+
+</html>
